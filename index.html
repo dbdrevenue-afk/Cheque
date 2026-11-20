@@ -1,0 +1,168 @@
+<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>โปรแกรมพิมพ์เช็ค</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><style id="pg"></style>
+<style>
+:root{--ink:#1c2333;--mut:#6a7388;--pri:#1856d6;--ln:#dde2ea;--bg:#f2f4f8}
+*{box-sizing:border-box}body{margin:0;font:14px/1.4 Sarabun,'TH Sarabun New','Noto Sans Thai',Tahoma,sans-serif;color:var(--ink);background:var(--bg)}
+header{display:flex;align-items:center;gap:20px;padding:8px 18px;background:#fff;border-bottom:1px solid var(--ln)}
+header b{font-size:17px}nav button{border:0;background:none;padding:8px 14px;border-radius:8px;font:inherit;cursor:pointer;color:var(--mut)}
+nav button.on{background:#e8efff;color:var(--pri);font-weight:600}
+main{display:grid;grid-template-columns:350px 1fr;height:calc(100vh - 50px)}
+#side{overflow:auto;background:#fff;border-right:1px solid var(--ln);padding:14px}
+#stage{overflow:auto;padding:20px}#dbv{display:none;padding:18px;overflow:auto}
+main.db{grid-template-columns:1fr}main.db #side,main.db #stage{display:none}main.db #dbv{display:block}
+label{display:block;font-size:12px;color:var(--mut);margin:9px 0 3px}
+input,select,button.b{font:inherit;padding:6px 8px;border:1px solid #c9d0dc;border-radius:7px;background:#fff;width:100%}
+input[type=checkbox]{width:auto}.row{display:flex;gap:6px;align-items:center}.row>*{flex:1}.row>.s{flex:0 0 auto}
+button.b{width:auto;cursor:pointer;font-weight:600}button.p{background:var(--pri);color:#fff;border-color:var(--pri)}
+button.d{color:#c33}.bar{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+h4{margin:16px 0 4px;font-size:13px}.note{font-size:12px;color:var(--mut)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}
+#wrap{transform-origin:0 0}#sheet{position:relative;background:#fff;box-shadow:0 2px 14px #0002;background-size:100% 100%}
+.guide{position:absolute;top:0;bottom:0;border-left:.3mm dashed #b8c0d0}
+.f{position:absolute;overflow:hidden;display:flex;align-items:center;color:#000;line-height:1.15}
+.f>i{font-style:normal;width:100%;display:block}.f.t{align-items:flex-start}
+.f .r{display:flex;justify-content:space-between;gap:2mm}
+.edit .f{outline:.25mm dashed #1856d6;background:#1856d614;cursor:move}.edit .f.sel{outline:.4mm solid #e0341e;background:#e0341e18}
+.edit .f>i.ph{color:#8a93a8}
+table{border-collapse:collapse;width:100%;background:#fff}th,td{padding:6px 8px;border-bottom:1px solid var(--ln);text-align:left}td.n{text-align:right}
+@media print{
+ header,#side,#dbv,.guide{display:none!important}
+ html,body{margin:0;background:none}main{display:block;height:auto}#stage{padding:0;overflow:visible}
+ #wrap{transform:none!important;width:auto!important;height:auto!important}
+ #sheet{box-shadow:none;background:none!important;position:absolute;left:0;top:0}
+ .f{outline:0!important;background:none!important}
+ #sheet[data-scope=stub] .f[data-g=c],#sheet[data-scope=chq] .f[data-g=s]{display:none}}
+</style></head><body>
+<header><b>🖨 โปรแกรมพิมพ์เช็ค</b><nav id="tabs"><button data-t="print" class="on">พิมพ์เช็ค</button><button data-t="layout">ตั้งค่าตำแหน่ง</button><button data-t="db">ฐานข้อมูล / ส่งออก</button></nav></header>
+<main id="main">
+<section id="side">
+ <div id="p-print">
+  <label>ธนาคาร</label><select id="bank"></select>
+  <div class="g2"><div><label>วันที่เช็ค</label><input type="date" id="date"></div><div><label>ขีดคร่อม / ขีดฆ่า</label><div class="row" style="padding-top:6px"><label class="row s" style="margin:0"><input type="checkbox" id="cross" checked> คร่อม</label><label class="row s" style="margin:0"><input type="checkbox" id="strike" checked> ฆ่า</label></div></div></div>
+  <label>สั่งจ่าย</label><input id="payee" placeholder="ชื่อผู้รับเงิน">
+  <label>จำนวนเงิน (บาท)</label><input id="amt" inputmode="decimal" placeholder="0.00">
+  <label>จำนวนเงินตัวอักษร (แก้ไขเองได้)</label><input id="words">
+  <h4>รายการย่อย (ต้นขั้ว)</h4><div id="items"></div>
+  <div class="row" style="margin-top:6px"><button class="b s" id="addi">+ เพิ่มรายการ</button><span class="note" id="sum"></span></div>
+  <label>สั่งพิมพ์</label><select id="scope"><option value="both">ต้นขั้ว + ตัวเช็ค</option><option value="stub">เฉพาะต้นขั้ว</option><option value="chq">เฉพาะตัวเช็ค</option></select>
+  <label class="row s" style="margin-top:8px"><input type="checkbox" id="autosave" checked> บันทึกลงฐานข้อมูลเมื่อสั่งพิมพ์</label>
+  <div class="bar"><button class="b p" id="print">พิมพ์</button><button class="b" id="save">บันทึก</button><button class="b" id="clear">ล้างฟอร์ม</button></div>
+  <p class="note">พิมพ์เฉพาะข้อมูล (ไม่พิมพ์รูปแบบเช็ค) — ในหน้าต่างพิมพ์ให้ตั้ง Margins = None และ Scale = 100%</p>
+ </div>
+ <div id="p-layout" hidden>
+  <p class="note">ลากช่องข้อมูลบนตัวอย่างเพื่อย้ายตำแหน่ง หรือกดลูกศรคีย์บอร์ดเพื่อขยับทีละ 0.1 มม. (Shift = 1 มม.)</p>
+  <h4>ธนาคาร / ขนาดเช็ค (มม.)</h4>
+  <div class="g2"><div><label>ชื่อธนาคาร</label><input id="bn"></div><div><label>แบบอักษร</label><input id="ff" placeholder="TH Sarabun New"></div>
+  <div><label>กว้างรวม</label><input type="number" step="0.1" id="bw"></div><div><label>สูง</label><input type="number" step="0.1" id="bh"></div>
+  <div><label>กว้างต้นขั้ว</label><input type="number" step="0.1" id="bs"></div><div><label>ปีบนเช็ค</label><select id="be"><option value="0">ค.ศ.</option><option value="1">พ.ศ.</option></select></div>
+  <div><label>เลื่อนทั้งใบ X</label><input type="number" step="0.1" id="ox"></div><div><label>เลื่อนทั้งใบ Y</label><input type="number" step="0.1" id="oy"></div></div>
+  <div class="bar"><button class="b" id="addb">+ เพิ่มธนาคาร (คัดลอกแบบนี้)</button><button class="b" id="resetb">รีเซ็ตตำแหน่ง</button><button class="b d" id="delb">ลบ</button></div>
+  <label>ภาพเช็คจริงเป็นแนวทาง (แสดงเฉพาะหน้าจอ ไม่พิมพ์)</label><input type="file" accept="image/*" id="bg">
+  <h4>ช่องข้อมูล</h4><select id="fsel"></select>
+  <div class="g2"><div><label>X</label><input type="number" step="0.1" data-k="x"></div><div><label>Y</label><input type="number" step="0.1" data-k="y"></div>
+  <div><label>กว้าง</label><input type="number" step="0.1" data-k="w"></div><div><label>สูง</label><input type="number" step="0.1" data-k="h"></div>
+  <div><label>ขนาดอักษรสูงสุด (pt)</label><input type="number" step="0.5" data-k="fs"></div><div><label>ขนาดต่ำสุด (pt)</label><input type="number" step="0.5" data-k="min"></div>
+  <div><label>ชิดข้อความ</label><select data-k="al"><option value="left">ซ้าย</option><option value="center">กลาง</option><option value="right">ขวา</option></select></div>
+  <div><label>แสดง</label><select data-k="on"><option value="1">แสดง</option><option value="0">ซ่อน</option></select></div>
+  <div data-only="c_date"><label>ระยะห่างตัวเลข (มม.)</label><input type="number" step="0.1" data-k="ls"></div>
+  <div data-only="c_cross"><label>องศาเอียง</label><input type="number" step="1" data-k="rot"></div>
+  <div data-only="c_cross c_strike"><label>ข้อความ</label><input data-k="txt"></div></div>
+ </div>
+</section>
+<section id="stage"><div id="wrap"><div id="sheet"></div></div></section>
+<section id="dbv">
+ <div class="row" style="max-width:900px"><input id="q" placeholder="ค้นหา ชื่อสั่งจ่าย / ธนาคาร / จำนวนเงิน"><button class="b s" id="xls">ส่งออก .xls</button><button class="b s" id="csv">ส่งออก .csv</button><button class="b s" id="bak">สำรอง .json</button><label class="b s" style="margin:0;border:1px solid #c9d0dc;border-radius:7px;padding:6px 8px;cursor:pointer;color:var(--ink)">นำเข้า .json<input type="file" id="imp" accept=".json" hidden></label></div>
+ <p class="note" id="cnt"></p><table><thead><tr><th>วันที่เช็ค</th><th>ธนาคาร</th><th>สั่งจ่าย</th><th class="n">จำนวนเงิน</th><th class="n">รายการย่อย</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+</section>
+</main>
+<script>
+const MM=96/25.4,PRE={"กรุงศรี":{"c_payee":[28.4,13.9,113.7,10.3,16.0],"c_words":[29.1,25.2,113.7,6.2,16.0],"c_amt":[110.0,33.6,35.0,6.2,16.0],"c_strike":[141.7,15.3,21.3,6.2,20.0],"c_cross":[27.4,8.3,30.0,6.1,10],"c_date":[109.4,2.1,47.3,7.1,20.0,5.8]},"ธกส":{"c_payee":[27.1,15.7,113.7,6.2,16.0],"c_words":[31.7,24.4,113.7,6.2,16.0],"c_amt":[107.8,32.8,35.0,6.4,16.0],"c_strike":[141.7,14.5,21.5,6.2,20.0],"c_cross":[68.1,4.0,30.0,6.1,10],"c_date":[108.8,0.1,47.3,5.2,20.0,5.9]},"กรุงไทย":{"c_payee":[28.4,13.2,113.7,12.7,16.0],"c_words":[29.1,26.5,113.7,6.2,16.0],"c_amt":[110.0,33.6,35.0,6.2,16.0],"c_strike":[142.0,18.1,21.5,6.2,20.0],"c_cross":[7.1,10.9,30.0,6.1,10],"c_date":[110.1,0.1,47.3,6.9,20.0,5.8]},"ยูโอบี":{"c_payee":[27.3,11.2,113.7,8.3,16.0],"c_words":[36.6,21.5,115.8,6.2,16.0],"c_amt":[107.8,33.2,35.0,6.2,16.0],"c_strike":[136.8,13.3,21.3,6.2,20.0],"c_cross":[28.7,6.4,30.0,6.1,10],"c_date":[109.1,0.1,51.2,6.9,20.0,6.0]},"ไทยพาณิชย์":{"c_payee":[28.4,10.7,113.7,15.9,16.0],"c_words":[29.1,24.8,113.7,6.2,16.0],"c_amt":[108.5,32.9,35.0,6.4,16.0],"c_strike":[143.5,15.2,21.5,6.2,20.0],"c_cross":[7.1,9.2,30.0,6.1,10],"c_date":[108.5,0.1,47.9,6.9,20.0,5.9]},"กสิกรไทย":{"c_payee":[28.9,11.7,118.6,15.6,16.0],"c_words":[29.1,24.9,127.5,6.2,16.0],"c_amt":[110.0,33.1,35.0,6.4,16.0],"c_strike":[140.6,15.6,21.5,6.2,20.0],"c_cross":[51.2,2.2,32.1,6.1,10],"c_date":[108.5,0.1,47.3,6.9,20.0,5.8]},"กรุงเทพ":{"c_payee":[28.0,13.1,113.7,11.8,16.0],"c_words":[29.1,24.3,113.7,6.4,16.0],"c_amt":[110.0,33.5,35.0,6.4,16.0],"c_strike":[142.9,17.4,21.5,6.2,20.0],"c_cross":[8.1,9.0,30.0,6.1,10],"c_date":[110.1,0.1,47.3,6.9,20.0,5.8]},"ออมสิน":{"c_payee":[23.3,14.3,113.7,9.5,16.0],"c_words":[24.0,24.5,113.7,7.9,16.0],"c_amt":[107.2,32.8,35.0,6.4,16.0],"c_strike":[143.3,17.3,21.5,6.2,20.0],"c_cross":[32.2,2.0,30.0,6.1,10],"c_date":[109.9,0.1,47.3,6.9,20.0,5.8]},"CIMB THAI":{"c_payee":[28.4,15.7,113.7,6.2,16.0],"c_words":[29.1,24.1,113.7,6.4,16.0],"c_amt":[106.6,33.9,35.0,6.4,16.0],"c_strike":[143.1,17.4,21.5,6.2,20.0],"c_cross":[51.2,5.7,32.1,6.1,10],"c_date":[111.6,0.1,47.3,6.9,20.0,5.8]},"ทหารไทยธนชาต":{"c_payee":[28.4,12.0,113.7,13.2,16.0],"c_words":[29.1,23.9,113.7,6.4,16.0],"c_amt":[107.8,33.3,35.0,6.2,16.0],"c_strike":[141.5,17.6,21.5,6.2,20.0],"c_cross":[32.2,1.3,30.0,6.1,10],"c_date":[109.0,0.0,47.3,7.2,20.0,5.9]},"เกียรตินาคิน":{"c_payee":[28.4,16.2,113.7,6.2,16.0],"c_words":[29.1,24.0,113.7,6.2,16.0],"c_amt":[110.0,32.6,35.0,6.4,16.0],"c_strike":[138.7,16.2,21.5,6.2,20.0],"c_cross":[51.2,5.6,32.1,6.1,10],"c_date":[109.9,0.1,47.3,6.9,20.0,5.8]},"ไทยเครดิต":{"c_payee":[28.4,16.2,113.7,6.2,16.0],"c_words":[29.1,25.6,113.7,6.2,16.0],"c_amt":[110.0,33.3,35.0,6.4,16.0],"c_strike":[141.3,15.9,21.5,6.2,20.0],"c_cross":[58.6,5.6,30.0,6.1,10],"c_date":[109.4,0.1,47.3,6.9,20.0,5.8]},"MIZUHO":{"c_payee":[28.4,15.5,113.7,6.4,16.0],"c_words":[29.1,24.4,113.7,6.2,16.0],"c_amt":[110.0,36.6,35.0,6.4,16.0],"c_strike":[135.7,16.8,21.2,6.2,20.0],"c_cross":[37.1,6.3,30.5,6.1,10],"c_date":[102.8,1.4,47.3,6.9,20.0,5.8]},"คืนกรม กรุงเทพ":{"c_payee":[28.4,14.7,113.7,11.8,16.0],"c_words":[29.1,25.6,113.7,6.4,16.0],"c_amt":[110.0,36.4,35.0,6.4,16.0],"c_strike":[135.7,18.9,21.2,6.2,20.0],"c_cross":[8.1,9.0,30.0,6.1,10],"c_date":[102.8,1.4,47.3,6.9,20.0,5.8]}};
+const LBL={s_date:'ต้นขั้ว: วันที่',s_payee:'ต้นขั้ว: สั่งจ่าย',s_amt:'ต้นขั้ว: จำนวนเงิน',s_notes:'ต้นขั้ว: รายการย่อย',c_date:'เช็ค: วันที่ (ตัวเลข)',c_payee:'เช็ค: สั่งจ่าย',c_words:'เช็ค: จำนวนเงินตัวอักษร',c_amt:'เช็ค: จำนวนเงินตัวเลข',c_strike:'เช็ค: ขีดฆ่า (หรือผู้ถือ)',c_cross:'เช็ค: ขีดคร่อม'};
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+function baseF(){const F=(x,y,w,h,fs,o={})=>({on:1,x,y,w,h,fs,min:5,al:'left',ls:0,rot:0,txt:'',...o});
+ return{s_date:F(3,5,58,6,12),s_payee:F(3,13,58,10,13),s_amt:F(3,25,58,7,14,{al:'right'}),s_notes:F(3,35,58,50,11,{min:4.5}),
+ c_date:F(109,2,48,7,20,{ls:2.3,min:20}),c_payee:F(28,14,114,10,16,{min:7}),c_words:F(28,26,114,10,16,{min:7}),c_amt:F(145,26,30,8,16,{min:8}),
+ c_strike:F(120,12,30,7,20,{al:'center',txt:'XXXXX',min:8}),c_cross:F(10,8,30,6,10,{al:'center',txt:'A/C PAYEE ONLY',rot:-30,min:10})}}
+function mkBank(n){const f=baseF(),p=PRE[n];if(p)for(const k in p){const v=p[k],o=f[k];[o.x,o.y,o.w,o.h,o.fs]=v;if(k=='c_date')o.ls=+(v[5]-v[4]*.1764).toFixed(1);if(k=='c_date')o.min=v[4];else o.min=Math.min(o.min,o.fs)}
+ return{id:'b'+Math.random().toString(36).slice(2,8),name:n,w:240,h:90,stubW:64,ox:0,oy:0,be:0,ff:'',f}}
+let DB;try{DB=JSON.parse(localStorage.chequeDB||'null')}catch(e){}
+if(!DB||!DB.banks?.length)DB={banks:Object.keys(PRE).map(mkBank),recs:[],last:''};
+if(!DB.banks.some(b=>b.id==DB.last))DB.last=DB.banks[0].id;
+const persist=()=>{try{localStorage.chequeDB=JSON.stringify(DB)}catch(e){alert('บันทึกลงเครื่องไม่ได้: '+e.message)}};
+const bank=()=>DB.banks.find(b=>b.id==DB.last);let tab='print',sel='c_payee',bgURL='',items=[{d:'',a:''}];
+// ---------- บาทไทย ----------
+const N=['ศูนย์','หนึ่ง','สอง','สาม','สี่','ห้า','หก','เจ็ด','แปด','เก้า'],U=['','สิบ','ร้อย','พัน','หมื่น','แสน'];
+function rd(s){let o='';const n=s.length;for(let i=0;i<n;i++){const d=+s[i],p=n-1-i;if(!d)continue;o+=p==0&&d==1&&n>1?'เอ็ด':p==1&&d==2?'ยี่สิบ':p==1&&d==1?'สิบ':N[d]+U[p]}return o}
+function numTh(s){s=s.replace(/^0+/,'');if(!s)return'ศูนย์';const p=[];while(s.length>6){p.unshift(s.slice(-6));s=s.slice(0,-6)}p.unshift(s);return p.map((x,i)=>rd(x)+(i<p.length-1?'ล้าน':'')).join('')}
+function bahtText(v){const t=Math.round(v*100),b=Math.floor(t/100),s=t%100;if(!t)return'ศูนย์บาทถ้วน';return(b?numTh(String(b))+'บาท':'')+(s?numTh(String(s))+'สตางค์':'ถ้วน')}
+const num=v=>parseFloat(String(v).replace(/,/g,''))||0,fmt=v=>v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// ---------- ข้อมูลฟอร์ม ----------
+function form(){const a=num($('#amt').value),d=$('#date').value?new Date($('#date').value+'T00:00'):null;return{date:$('#date').value,d,payee:$('#payee').value,amt:a,words:$('#words').value,cross:$('#cross').checked,strike:$('#strike').checked,items:items.filter(i=>i.d||i.a)}}
+function render(){const b=bank(),F=form(),W=b.w,H=b.h,edit=tab=='layout',sh=$('#sheet');
+ $('#pg').textContent=`@page{size:${W}mm ${H}mm;margin:0}`;
+ sh.className=edit?'edit':'';sh.dataset.scope=$('#scope').value;
+ sh.style.cssText=`width:${W}mm;height:${H}mm;font-family:${b.ff?`'${b.ff}',`:''}'TH Sarabun New','TH SarabunPSK',Sarabun,'Noto Sans Thai',Tahoma,sans-serif;${bgURL&&edit?`background-image:url(${bgURL})`:''}`;
+ let h=`<div class="guide" style="left:${b.stubW}mm"></div>`;
+ const dd=F.d?String(F.d.getDate()).padStart(2,'0')+String(F.d.getMonth()+1).padStart(2,'0')+(F.d.getFullYear()+(+b.be?543:0)):'';
+ const txt={s_date:F.d?F.d.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'}):'',s_payee:F.payee,s_amt:F.amt?fmt(F.amt):'',
+  s_notes:F.items.map(i=>`<div class="r"><span>${esc(i.d)}</span><span>${i.a?fmt(num(i.a)):''}</span></div>`).join(''),
+  c_date:dd,c_payee:F.payee,c_words:F.words?'='+F.words+'=':'',c_amt:F.amt?'='+fmt(F.amt)+'=':'',c_strike:F.strike?b.f.c_strike.txt:'',c_cross:F.cross?'1':''};
+ for(const k in b.f){const o=b.f[k];if(!+o.on)continue;const g=k[0],ox=(g=='c'?b.stubW:0)+(+b.ox||0),oy=+b.oy||0;let c=txt[k];
+  if(k=='c_cross'&&c)c=`<div style="width:100%;border-top:.35mm solid #000;border-bottom:.35mm solid #000;text-align:center;padding:.4mm 0;white-space:nowrap">${esc(o.txt)}</div>`;
+  const ph=!c&&edit;if(ph)c=LBL[k];
+  h+=`<div class="f${k=='s_notes'?' t':''}${sel==k&&edit?' sel':''}" data-k="${k}" data-g="${g}" style="left:${o.x+ox}mm;top:${o.y+oy}mm;width:${o.w}mm;height:${o.h}mm;font-size:${o.fs}pt;text-align:${o.al};${o.rot?`transform:rotate(${o.rot}deg);`:''}${k=='c_date'?`letter-spacing:${o.ls}mm;white-space:nowrap;`:''}"><i class="${ph?'ph':''}">${c}</i></div>`}
+ sh.innerHTML=h;
+ $$('.f').forEach(e=>{const o=b.f[e.dataset.k],i=e.firstChild;let s=+o.fs;if(e.dataset.k=='c_date')return;
+  while(s>+o.min&&(i.offsetHeight>e.clientHeight+.5||i.scrollWidth>e.clientWidth+.5)){s-=.25;e.style.fontSize=s+'pt'}});
+ const w=$('#stage').clientWidth-40,sc=tab=='db'?1:Math.min(2,w/(W*MM));$('#wrap').style.transform=`scale(${sc})`;$('#wrap').style.width=W*MM+'px';$('#wrap').style.height=H*MM+'px';$('#wrap').dataset.sc=sc;
+ const t=items.reduce((s,i)=>s+num(i.a),0);$('#sum').textContent=t?`รวมรายการ ${fmt(t)}${F.amt&&Math.abs(t-F.amt)>.005?' ≠ จำนวนเงินเช็ค':''}`:''}
+// ---------- UI ----------
+function fillBanks(){$('#bank').innerHTML=DB.banks.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('');$('#bank').value=DB.last}
+function drawItems(){$('#items').innerHTML=items.map((i,n)=>`<div class="row" style="margin-bottom:4px"><input data-n="${n}" data-c="d" placeholder="รายการ" value="${esc(i.d)}"><input data-n="${n}" data-c="a" placeholder="จำนวนเงิน" inputmode="decimal" style="max-width:100px;text-align:right" value="${esc(i.a)}"><button class="b s d" data-del="${n}">✕</button></div>`).join('')}
+$('#items').oninput=e=>{const t=e.target;if(t.dataset.n!=null){items[t.dataset.n][t.dataset.c]=t.value;render()}};
+$('#items').onclick=e=>{const n=e.target.dataset.del;if(n!=null){items.splice(n,1);if(!items.length)items=[{d:'',a:''}];drawItems();render()}};
+$('#addi').onclick=()=>{items.push({d:'',a:''});drawItems()};
+$('#amt').oninput=()=>{$('#words').value=num($('#amt').value)?bahtText(num($('#amt').value)):'';render()};
+['date','payee','words','cross','strike','scope'].forEach(i=>$('#'+i).oninput=render);
+$('#bank').onchange=e=>{DB.last=e.target.value;persist();syncB();render()};
+$('#tabs').onclick=e=>{const t=e.target.dataset.t;if(!t)return;tab=t;$$('#tabs button').forEach(x=>x.classList.toggle('on',x==e.target));
+ $('#main').classList.toggle('db',t=='db');$('#p-print').hidden=t!='layout'?false:true;$('#p-layout').hidden=t!='layout';if(t=='db')drawDB();render()};
+$('#clear').onclick=()=>{['payee','amt','words'].forEach(i=>$('#'+i).value='');items=[{d:'',a:''}];drawItems();render()};
+function rec(){const F=form(),b=bank();return{id:'r'+Date.now(),ts:new Date().toISOString(),bank:b.id,bankName:b.name,date:F.date,payee:F.payee,amt:F.amt,words:F.words,cross:F.cross,strike:F.strike,items:F.items}}
+function save(){const F=form();if(!F.payee||!F.amt){alert('กรุณากรอกชื่อสั่งจ่ายและจำนวนเงิน');return false}DB.recs.unshift(rec());persist();return true}
+$('#save').onclick=()=>{if(save())alert('บันทึกแล้ว')};
+$('#print').onclick=()=>{if($('#autosave').checked&&!save())return;render();setTimeout(()=>print(),50)};
+// ---------- ตั้งค่าตำแหน่ง ----------
+function syncB(){const b=bank();[['bn','name'],['ff','ff'],['bw','w'],['bh','h'],['bs','stubW'],['be','be'],['ox','ox'],['oy','oy']].forEach(([i,k])=>$('#'+i).value=b[k]);
+ $('#fsel').innerHTML=Object.keys(b.f).map(k=>`<option value="${k}">${LBL[k]}</option>`).join('');$('#fsel').value=sel;syncF()}
+function syncF(){const o=bank().f[sel];$$('#p-layout [data-k]').forEach(e=>e.value=o[e.dataset.k]);$$('#p-layout [data-only]').forEach(e=>e.style.display=e.dataset.only.split(' ').includes(sel)?'':'none')}
+[['bn','name'],['ff','ff'],['bw','w'],['bh','h'],['bs','stubW'],['be','be'],['ox','ox'],['oy','oy']].forEach(([i,k])=>$('#'+i).oninput=e=>{const b=bank();b[k]=e.target.type=='number'?+e.target.value:e.target.value;if(k=='name')fillBanks();persist();render()});
+$('#fsel').onchange=e=>{sel=e.target.value;syncF();render()};
+$$('#p-layout [data-k]').forEach(e=>e.oninput=()=>{const o=bank().f[sel],k=e.dataset.k;o[k]=e.type=='number'?+e.value:e.value;persist();render()});
+$('#addb').onclick=()=>{const n=prompt('ชื่อธนาคารใหม่');if(!n)return;const b=JSON.parse(JSON.stringify(bank()));b.id='b'+Math.random().toString(36).slice(2,8);b.name=n;DB.banks.push(b);DB.last=b.id;persist();fillBanks();syncB();render()};
+$('#resetb').onclick=()=>{if(!confirm('รีเซ็ตตำแหน่งของธนาคารนี้เป็นค่าเริ่มต้น?'))return;const b=bank(),n=mkBank(b.name);b.f=n.f;persist();syncB();render()};
+$('#delb').onclick=()=>{if(DB.banks.length<2||!confirm('ลบธนาคารนี้?'))return;DB.banks=DB.banks.filter(b=>b!=bank());DB.last=DB.banks[0].id;persist();fillBanks();syncB();render()};
+$('#bg').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{bgURL=r.result;render()};r.readAsDataURL(f)};
+let drag=null;
+$('#sheet').onpointerdown=e=>{if(tab!='layout')return;const f=e.target.closest('.f');if(!f)return;sel=f.dataset.k;const o=bank().f[sel];drag={x:e.clientX,y:e.clientY,ox:o.x,oy:o.y};$('#fsel').value=sel;syncF();render();$('#sheet').setPointerCapture(e.pointerId)};
+$('#sheet').onpointermove=e=>{if(!drag)return;const k=+$('#wrap').dataset.sc*MM,o=bank().f[sel];o.x=+(drag.ox+(e.clientX-drag.x)/k).toFixed(1);o.y=+(drag.oy+(e.clientY-drag.y)/k).toFixed(1);render();syncF()};
+$('#sheet').onpointerup=()=>{if(drag){drag=null;persist()}};
+document.onkeydown=e=>{if(tab!='layout'||/INPUT|SELECT/.test(document.activeElement.tagName))return;const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(!d)return;e.preventDefault();const s=e.shiftKey?1:.1,o=bank().f[sel];o.x=+(o.x+d[0]*s).toFixed(1);o.y=+(o.y+d[1]*s).toFixed(1);persist();render();syncF()};
+// ---------- ฐานข้อมูล / ส่งออก ----------
+const shown=()=>{const q=$('#q').value.trim().toLowerCase();return DB.recs.filter(r=>!q||(r.payee+r.bankName+r.amt+r.date).toLowerCase().includes(q))};
+function drawDB(){const L=shown();$('#cnt').textContent=`${L.length} รายการ (จากทั้งหมด ${DB.recs.length}) — ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้ ควรสำรอง .json เป็นระยะ`;
+ $('#rows').innerHTML=L.map(r=>`<tr><td>${r.date.split('-').reverse().join('/')}</td><td>${esc(r.bankName)}</td><td>${esc(r.payee)}</td><td class="n">${fmt(r.amt)}</td><td class="n">${r.items.length}</td><td style="white-space:nowrap"><button class="b" data-ld="${r.id}">เปิด</button> <button class="b d" data-rm="${r.id}">ลบ</button></td></tr>`).join('')}
+$('#q').oninput=drawDB;
+$('#rows').onclick=e=>{const l=e.target.dataset.ld,m=e.target.dataset.rm;if(m){if(confirm('ลบรายการนี้?')){DB.recs=DB.recs.filter(r=>r.id!=m);persist();drawDB()}return}
+ if(l){const r=DB.recs.find(x=>x.id==l);if(DB.banks.some(b=>b.id==r.bank))DB.last=r.bank;$('#date').value=r.date;$('#payee').value=r.payee;$('#amt').value=r.amt;$('#words').value=r.words;$('#cross').checked=r.cross;$('#strike').checked=r.strike;items=r.items.length?JSON.parse(JSON.stringify(r.items)):[{d:'',a:''}];fillBanks();syncB();drawItems();$('#tabs button').click();render()}};
+function table(){return[['ลำดับ','บันทึกเมื่อ','วันที่เช็ค','ธนาคาร','สั่งจ่าย','จำนวนเงิน','จำนวนเงินตัวอักษร','ขีดคร่อม','ขีดฆ่า','รายการย่อย']].concat(shown().map((r,i)=>[i+1,r.ts.slice(0,16).replace('T',' '),r.date.split('-').reverse().join('/'),r.bankName,r.payee,r.amt,r.words,r.cross?'ใช่':'ไม่',r.strike?'ใช่':'ไม่',r.items.map(x=>x.d+': '+(x.a||'')).join('; ')]))}
+function dl(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),999)}
+const stamp=()=>new Date().toISOString().slice(0,10);
+$('#csv').onclick=()=>dl(`cheque-${stamp()}.csv`,'\ufeff'+table().map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n'),'text/csv;charset=utf-8');
+$('#xls').onclick=()=>dl(`cheque-${stamp()}.xls`,'<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Cheque"><Table>'+table().map(r=>'<Row>'+r.map(v=>typeof v=='number'?`<Cell><Data ss:Type="Number">${v}</Data></Cell>`:`<Cell><Data ss:Type="String">${esc(v)}</Data></Cell>`).join('')+'</Row>').join('')+'</Table></Worksheet></Workbook>','application/vnd.ms-excel');
+$('#bak').onclick=()=>dl(`cheque-backup-${stamp()}.json`,JSON.stringify(DB),'application/json');
+$('#imp').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.banks||!d.recs)throw 0;if(confirm('แทนที่ข้อมูลทั้งหมดด้วยไฟล์สำรองนี้?')){DB=d;persist();fillBanks();syncB();drawDB();render()}}catch(x){alert('ไฟล์ไม่ถูกต้อง')}};r.readAsText(f)};
+// ---------- เริ่มต้น ----------
+$('#date').value=new Date().toISOString().slice(0,10);fillBanks();syncB();drawItems();render();addEventListener('resize',render);
+</script></body></html>
